@@ -1,0 +1,9 @@
+Analyze this image's ART STYLE precisely. Describe in one detailed paragraph:
+1. The medium (watercolor, digital painting, stop-motion clay, vector illustration, colored pencil, gouache, etc.)
+2. The line work (thick black outlines, thin delicate lines, no outlines, sketchy/loose, clean/precise)
+3. The color palette (muted earth tones, soft pastels, vibrant saturated, warm/cool dominant, specific notable colors)
+4. Texture (visible paper grain, smooth digital, brushstroke texture, grainy film, fabric-like)
+5. Character style if characters are present (rounded/soft, angular, realistic proportions, chibi/exaggerated, specific features)
+6. Overall mood and atmosphere (cozy, whimsical, dramatic, gentle, playful)
+
+Output ONLY the style description paragraph, nothing else.

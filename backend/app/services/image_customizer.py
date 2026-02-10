@@ -1,22 +1,30 @@
-"""Image Customizer — Gemini style extraction + SDXL inpainting via Replicate.
+"""Image Customizer — Gemini prompt crafting + Banana Pro generation via Replicate.
 
 Two-step pipeline:
 1. Gemini Flash analyzes the art style of the source image
-2. SDXL Inpainting via Replicate paints the child into the scene
+2. Gemini Flash crafts the perfect generation prompt
+3. Google Nano Banana Pro generates the new image with the scene as reference
 """
 
 import asyncio
+import base64
 import logging
 import os
 import uuid
 from pathlib import Path
 from typing import AsyncGenerator
 
-from PIL import Image
-
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
+
+
+def _load_prompt(name: str) -> str:
+    """Load a prompt template from the prompts/ directory."""
+    path = PROMPTS_DIR / f"{name}.txt"
+    return path.read_text().strip()
 
 
 async def stream_customize_image(
@@ -32,41 +40,37 @@ async def stream_customize_image(
     output_dir = Path(settings.clip_storage_path) / "assets" / "customized"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Step 1: Create mask
-    yield {"step": "mask", "status": "running", "detail": "Creating mask for character placement...", "progress": 0.1}
-
-    mask_path = str(output_dir / f"mask_{uuid.uuid4()}.png")
-    _create_mask(scene_image_path, mask_path, mask_position)
-
-    yield {"step": "mask", "status": "done", "detail": "Mask created", "progress": 0.2}
-
-    # Step 2: Analyze art style with Gemini
-    yield {"step": "style_analysis", "status": "running", "detail": "Gemini is analyzing the art style of the scene...", "progress": 0.25}
+    # Step 1: Analyze art style with Gemini
+    yield {"step": "style_analysis", "status": "running", "detail": "Gemini is analyzing the art style of the scene...", "progress": 0.15}
 
     art_style = await _analyze_art_style(scene_image_path)
 
-    yield {"step": "style_analysis", "status": "done", "detail": f"Style detected: {art_style[:100]}...", "progress": 0.4}
+    yield {"step": "style_analysis", "status": "done", "detail": f"Style detected: {art_style[:100]}...", "progress": 0.3}
 
-    # Step 3: Build final prompt
-    yield {"step": "prompt", "status": "running", "detail": "Building generation prompt...", "progress": 0.45}
+    # Step 2: Ask Gemini to craft the perfect prompt
+    yield {"step": "prompt", "status": "running", "detail": "Gemini is crafting the perfect generation prompt...", "progress": 0.35}
 
-    final_prompt = (
-        f"An illustration of {child_description}. "
-        f"The character is standing naturally in the scene, interacting with the environment. "
-        f"Art style: {art_style}. "
-        "High quality, seamless blend with the existing scene, same artistic technique."
+    final_prompt = await _craft_prompt(child_description, art_style, mask_position, scene_image_path)
+
+    # Save the prompt for debugging/iteration
+    prompt_log_path = output_dir / f"prompt_{uuid.uuid4()}.txt"
+    prompt_log_path.write_text(
+        f"Child: {child_description}\n\n"
+        f"Style: {art_style}\n\n"
+        f"Position: {mask_position}\n\n"
+        f"Final prompt:\n{final_prompt}"
     )
 
-    yield {"step": "prompt", "status": "done", "detail": f"Prompt: {final_prompt[:120]}...", "progress": 0.5}
+    yield {"step": "prompt", "status": "done", "detail": f"Prompt: {final_prompt[:120]}...", "progress": 0.45}
 
-    # Step 4: Generate via Replicate inpainting
-    yield {"step": "inpainting", "status": "running", "detail": "SDXL is painting your child into the scene... this takes 15-30 seconds", "progress": 0.55}
+    # Step 3: Generate with Banana Pro using scene as reference
+    yield {"step": "generating", "status": "running", "detail": "Banana Pro is generating your character in the scene...", "progress": 0.5}
 
-    result_url = await _run_inpainting(scene_image_path, mask_path, final_prompt)
+    result_url = await _run_banana_pro(scene_image_path, final_prompt)
 
-    yield {"step": "inpainting", "status": "done", "detail": "Inpainting complete!", "progress": 0.85}
+    yield {"step": "generating", "status": "done", "detail": "Generation complete!", "progress": 0.85}
 
-    # Step 5: Download result
+    # Step 4: Download result
     yield {"step": "download", "status": "running", "detail": "Downloading generated image...", "progress": 0.9}
 
     local_path = await _download_result(result_url, output_dir)
@@ -78,7 +82,7 @@ async def stream_customize_image(
     yield {
         "step": "complete",
         "status": "done",
-        "detail": "Your child has been added to the scene!",
+        "detail": "Your character has been added to the scene!",
         "progress": 1.0,
         "result_url": f"/api/agents/assets/file/customized/{filename}",
         "result_path": local_path,
@@ -91,17 +95,16 @@ async def _analyze_art_style(image_path: str) -> str:
 
     client = genai.Client(api_key=settings.gemini_api_key)
 
-    # Upload the image
     with open(image_path, "rb") as f:
         image_bytes = f.read()
 
-    import base64
     image_b64 = base64.b64encode(image_bytes).decode()
 
-    # Determine mime type
     ext = Path(image_path).suffix.lower()
     mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
     mime_type = mime_map.get(ext, "image/jpeg")
+
+    style_prompt = _load_prompt("style_analysis")
 
     response = await asyncio.to_thread(
         client.models.generate_content,
@@ -115,16 +118,7 @@ async def _analyze_art_style(image_path: str) -> str:
                             "data": image_b64,
                         }
                     },
-                    {
-                        "text": """Analyze this image's ART STYLE precisely. Describe in one paragraph:
-1. The medium (watercolor, digital, stop-motion, vector, etc.)
-2. The line work (thick outlines, thin, no outlines, sketchy)
-3. The color palette (muted earth tones, pastel, vibrant, warm/cool)
-4. Texture (paper grain, smooth, brushstrokes visible)
-5. Character style (rounded, angular, realistic, exaggerated proportions)
-
-Output ONLY the style description paragraph, nothing else."""
-                    }
+                    {"text": style_prompt}
                 ]
             }
         ],
@@ -133,22 +127,73 @@ Output ONLY the style description paragraph, nothing else."""
     return response.text.strip()
 
 
-async def _run_inpainting(scene_path: str, mask_path: str, prompt: str) -> str:
-    """Run SDXL inpainting via Replicate."""
+async def _craft_prompt(
+    child_description: str,
+    art_style: str,
+    position: str,
+    scene_image_path: str,
+) -> str:
+    """Use Gemini to craft the perfect generation prompt for Banana Pro."""
+    from google import genai
+
+    client = genai.Client(api_key=settings.gemini_api_key)
+
+    # Load the scene image so Gemini can see what it's working with
+    with open(scene_image_path, "rb") as f:
+        image_bytes = f.read()
+
+    image_b64 = base64.b64encode(image_bytes).decode()
+    ext = Path(scene_image_path).suffix.lower()
+    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    mime_type = mime_map.get(ext, "image/jpeg")
+
+    system_prompt = _load_prompt("scene_composite")
+
+    user_message = (
+        f"Here is the reference scene image. I want to add a character to it.\n\n"
+        f"Character description: {child_description}\n\n"
+        f"Art style analysis of this scene: {art_style}\n\n"
+        f"Character position: {position}\n\n"
+        f"Craft the generation prompt now."
+    )
+
+    response = await asyncio.to_thread(
+        client.models.generate_content,
+        model="gemini-2.0-flash",
+        contents=[
+            {
+                "parts": [
+                    {
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": image_b64,
+                        }
+                    },
+                    {"text": f"{system_prompt}\n\n---\n\n{user_message}"}
+                ]
+            }
+        ],
+    )
+
+    return response.text.strip()
+
+
+async def _run_banana_pro(scene_path: str, prompt: str) -> str:
+    """Run Banana Pro via Replicate with the scene as reference image."""
     import replicate
 
     os.environ["REPLICATE_API_TOKEN"] = settings.replicate_api_token
 
     output = await asyncio.to_thread(
         replicate.run,
-        "stability-ai/stable-diffusion-inpainting",
+        "google/nano-banana-pro",
         input={
             "prompt": prompt,
-            "negative_prompt": "photorealistic, 3d render, distorted face, bad anatomy, text, watermark, blurry, low quality",
-            "image": open(scene_path, "rb"),
-            "mask": open(mask_path, "rb"),
-            "prompt_strength": 0.8,
-            "num_inference_steps": 30,
+            "image_input": [open(scene_path, "rb")],
+            "aspect_ratio": "match_input_image",
+            "resolution": "2K",
+            "output_format": "png",
+            "safety_filter_level": "block_only_high",
         },
     )
 
@@ -171,31 +216,3 @@ async def _download_result(url: str, output_dir: Path) -> str:
             f.write(response.content)
 
     return str(filepath)
-
-
-def _create_mask(image_path: str, output_path: str, position: str = "center") -> str:
-    """Create an inpainting mask — white area = where to draw the child."""
-    img = Image.open(image_path)
-    mask = Image.new("L", img.size, 0)  # All black (keep original)
-    w, h = img.size
-
-    positions = {
-        "center": (0.3, 0.3, 0.7, 0.9),
-        "left": (0.05, 0.3, 0.4, 0.9),
-        "right": (0.6, 0.3, 0.95, 0.9),
-        "small_center": (0.35, 0.45, 0.65, 0.85),
-    }
-
-    coords = positions.get(position, positions["center"])
-    left = int(w * coords[0])
-    top = int(h * coords[1])
-    right = int(w * coords[2])
-    bottom = int(h * coords[3])
-
-    # Draw white rectangle for the child placement area
-    for x in range(left, right):
-        for y in range(top, bottom):
-            mask.putpixel((x, y), 255)
-
-    mask.save(output_path)
-    return output_path
