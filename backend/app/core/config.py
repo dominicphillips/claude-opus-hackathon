@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     replicate_api_token: str = ""
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = ""
+    gemini_api_key: str = ""
     clip_storage_path: str = "/app/clips"
 
     model_config = {"env_file": ".env"}

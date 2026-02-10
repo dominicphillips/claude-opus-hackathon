@@ -13,3 +13,6 @@ pydub==0.25.1
 python-multipart==0.0.20
 aiofiles==24.1.0
 elevenlabs
+google-genai
+Pillow
+sse-starlette

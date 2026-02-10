@@ -25,6 +25,7 @@ services:
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     volumes:
       - ./backend:/app
       - clip_storage:/app/clips
