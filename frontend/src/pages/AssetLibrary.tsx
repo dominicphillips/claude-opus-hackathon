@@ -3,7 +3,7 @@ import { useQuery } from "@/hooks/useApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ImageAsset } from "@/types/api";
-import { Search, Paintbrush, Loader2, Check, AlertCircle, Image as ImageIcon, X, ChevronRight } from "lucide-react";
+import { Search, Paintbrush, Loader2, Check, AlertCircle, Image as ImageIcon, X, ChevronRight, UserPlus } from "lucide-react";
 
 interface StreamEvent {
   step: string;
@@ -21,8 +21,10 @@ export default function AssetLibrary() {
   const [searching, setSearching] = useState(false);
   const [searchEvents, setSearchEvents] = useState<StreamEvent[]>([]);
 
-  // Child profile
+  // Character creator
   const [childProfile, setChildProfile] = useState({
+    name: "Thomas",
+    gender: "boy",
     hair_color: "brown",
     hair_style: "short and curly",
     eye_color: "blue",
@@ -90,6 +92,8 @@ export default function AssetLibrary() {
 
     const formData = new FormData();
     formData.append("scene_image_url", selectedImage.url);
+    formData.append("name", childProfile.name);
+    formData.append("gender", childProfile.gender);
     formData.append("hair_color", childProfile.hair_color);
     formData.append("hair_style", childProfile.hair_style);
     formData.append("eye_color", childProfile.eye_color);
@@ -151,35 +155,58 @@ export default function AssetLibrary() {
 
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-8">
 
-        {/* === Child Profile === */}
+        {/* === Create Character === */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Paintbrush className="w-5 h-5" />
-              Describe Your Child
+              <UserPlus className="w-5 h-5" />
+              Create Character
             </CardTitle>
             <CardDescription>
-              This helps us create a character that looks like your child when adding them to scenes
+              Build a character based on your child. This character will be drawn into show scenes in the matching art style.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Name</label>
+                <input value={childProfile.name} onChange={(e) => setChildProfile((p) => ({ ...p, name: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Gender</label>
+                <select value={childProfile.gender} onChange={(e) => setChildProfile((p) => ({ ...p, gender: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                  <option value="boy">Boy</option>
+                  <option value="girl">Girl</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Age</label>
+                <input type="number" value={childProfile.age} onChange={(e) => setChildProfile((p) => ({ ...p, age: parseInt(e.target.value) || 4 }))} min={1} max={12} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Height</label>
+                <select value={childProfile.height} onChange={(e) => setChildProfile((p) => ({ ...p, height: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                  <option value="small">Small</option>
+                  <option value="average">Average</option>
+                  <option value="tall for their age">Tall</option>
+                </select>
+              </div>
+              <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Hair Color</label>
                 <select value={childProfile.hair_color} onChange={(e) => setChildProfile((p) => ({ ...p, hair_color: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
-                  <option>brown</option><option>blonde</option><option>black</option><option>red</option><option>auburn</option><option>light brown</option>
+                  <option>brown</option><option>blonde</option><option>black</option><option>red</option><option>auburn</option><option>light brown</option><option>dark brown</option><option>strawberry blonde</option>
                 </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Hair Style</label>
                 <select value={childProfile.hair_style} onChange={(e) => setChildProfile((p) => ({ ...p, hair_style: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
-                  <option>short and curly</option><option>short and straight</option><option>medium length wavy</option><option>long and straight</option><option>long and curly</option><option>short spiky</option>
+                  <option>short and curly</option><option>short and straight</option><option>medium length wavy</option><option>long and straight</option><option>long and curly</option><option>short spiky</option><option>in a ponytail</option><option>in pigtails</option><option>with bangs</option>
                 </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Eye Color</label>
                 <select value={childProfile.eye_color} onChange={(e) => setChildProfile((p) => ({ ...p, eye_color: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
-                  <option>blue</option><option>brown</option><option>green</option><option>hazel</option>
+                  <option>blue</option><option>brown</option><option>green</option><option>hazel</option><option>dark brown</option>
                 </select>
               </div>
               <div>
@@ -188,18 +215,17 @@ export default function AssetLibrary() {
                   <option>light</option><option>fair</option><option>medium</option><option>olive</option><option>tan</option><option>brown</option><option>dark</option>
                 </select>
               </div>
-              <div>
+              <div className="col-span-2">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Outfit</label>
-                <input value={childProfile.outfit} onChange={(e) => setChildProfile((p) => ({ ...p, outfit: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Age</label>
-                <input type="number" value={childProfile.age} onChange={(e) => setChildProfile((p) => ({ ...p, age: parseInt(e.target.value) || 4 }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                <input value={childProfile.outfit} onChange={(e) => setChildProfile((p) => ({ ...p, outfit: e.target.value }))} placeholder="e.g., red t-shirt and blue shorts, favorite dinosaur hoodie" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
               </div>
               <div className="col-span-2">
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Extra Details</label>
-                <input value={childProfile.extra} onChange={(e) => setChildProfile((p) => ({ ...p, extra: e.target.value }))} placeholder="e.g., loves dinosaurs, always carries a toy frog" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Anything else?</label>
+                <input value={childProfile.extra} onChange={(e) => setChildProfile((p) => ({ ...p, extra: e.target.value }))} placeholder="e.g., always carries a toy frog, wears glasses, has freckles" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
               </div>
+            </div>
+            <div className="mt-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{childProfile.name}</span> — {childProfile.age}-year-old {childProfile.gender} with {childProfile.hair_style} {childProfile.hair_color} hair, {childProfile.eye_color} eyes, {childProfile.skin_tone} skin, wearing {childProfile.outfit}{childProfile.extra ? `. ${childProfile.extra}` : ""}
             </div>
           </CardContent>
         </Card>
@@ -262,7 +288,7 @@ export default function AssetLibrary() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Paintbrush className="w-5 h-5 text-primary" />
-                  Add Your Child to This Scene
+                  Add {childProfile.name} to This Scene
                 </CardTitle>
                 <Button variant="ghost" size="icon" onClick={() => { setSelectedImage(null); setCustomizeResult(null); setCustomizeEvents([]); }}>
                   <X className="w-4 h-4" />
@@ -286,7 +312,7 @@ export default function AssetLibrary() {
                     <img src={customizeResult} alt="Customized" className="rounded-lg w-full" />
                   ) : (
                     <div className="aspect-video rounded-lg bg-muted flex items-center justify-center">
-                      <p className="text-sm text-muted-foreground">Your child will appear here</p>
+                      <p className="text-sm text-muted-foreground">{childProfile.name} will appear here</p>
                     </div>
                   )}
                 </div>
@@ -344,9 +370,9 @@ export default function AssetLibrary() {
 
               <Button onClick={handleCustomize} disabled={customizing} size="lg">
                 {customizing ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adding your child to the scene...</>
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adding {childProfile.name} to the scene...</>
                 ) : (
-                  <><Paintbrush className="w-4 h-4 mr-2" /> Add Child to Scene</>
+                  <><Paintbrush className="w-4 h-4 mr-2" /> Add {childProfile.name} to Scene</>
                 )}
               </Button>
             </CardContent>

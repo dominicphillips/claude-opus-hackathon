@@ -21,6 +21,8 @@ class ImageSearchRequest(BaseModel):
 
 
 class ChildProfile(BaseModel):
+    name: str = "Thomas"
+    gender: str = "boy"
     hair_color: str = "brown"
     hair_style: str = "short and curly"
     eye_color: str = "blue"
@@ -75,6 +77,8 @@ async def search_images_stream(query: str):
 @router.post("/images/customize/stream")
 async def customize_image_stream(
     scene_image_url: str = Form(...),
+    name: str = Form("Thomas"),
+    gender: str = Form("boy"),
     hair_color: str = Form("brown"),
     hair_style: str = Form("short and curly"),
     eye_color: str = Form("blue"),
@@ -89,7 +93,7 @@ async def customize_image_stream(
 
     # Build child description
     child_desc = (
-        f"a {height} {age}-year-old child with {hair_style} {hair_color} hair, "
+        f"a {height} {age}-year-old {gender} named {name} with {hair_style} {hair_color} hair, "
         f"{eye_color} eyes, {skin_tone} skin, wearing {outfit}"
     )
     if extra:
@@ -125,14 +129,15 @@ async def customize_image(request: ImageCustomizeRequest):
     """Customize an image (non-streaming)."""
     from app.services.image_customizer import stream_customize_image
 
+    p = request.child_profile
     child_desc = (
-        f"a {request.child_profile.height} {request.child_profile.age}-year-old child with "
-        f"{request.child_profile.hair_style} {request.child_profile.hair_color} hair, "
-        f"{request.child_profile.eye_color} eyes, {request.child_profile.skin_tone} skin, "
-        f"wearing {request.child_profile.outfit}"
+        f"a {p.height} {p.age}-year-old {p.gender} named {p.name} with "
+        f"{p.hair_style} {p.hair_color} hair, "
+        f"{p.eye_color} eyes, {p.skin_tone} skin, "
+        f"wearing {p.outfit}"
     )
-    if request.child_profile.extra:
-        child_desc += f", {request.child_profile.extra}"
+    if p.extra:
+        child_desc += f", {p.extra}"
 
     scene_path = _resolve_asset_path(request.scene_image_url)
     if not scene_path:
